@@ -44,16 +44,12 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -87,7 +83,7 @@ private val TileGap = 16.dp
 private const val TilesPerRow = 5
 
 /** What the big area at the top shows: the thing you're on right now. */
-data class Hero(val title: String, val subtitle: String, val banner: ImageBitmap?)
+data class Hero(val title: String, val subtitle: String, val glow: Color? = null)
 
 @Composable
 fun HomeScreen(
@@ -110,7 +106,7 @@ fun HomeScreen(
         in 12..17 -> "Good afternoon"
         else -> "Good evening"
     }
-    val welcomeHero = Hero(greeting, guest?.welcome ?: "Welcome! Pick something to watch.", null)
+    val welcomeHero = Hero(greeting, guest?.welcome ?: "Welcome! Pick something to watch.")
     var hero by remember { mutableStateOf<Hero?>(null) }
     // Each time you come back home, show the welcome first. The automatic jump to
     // the first tile shouldn't replace it; moving with the remote does.
@@ -129,7 +125,7 @@ fun HomeScreen(
 
     val shown = hero ?: welcomeHero
     Box(Modifier.fillMaxSize()) {
-        Backdrop(shown.banner)
+        Backdrop(shown.glow)
         Column(Modifier.fillMaxSize().padding(top = 22.dp)) {
             TopBar(now, onOpenAssistant, onOpenWifi, onFocused = { hero = it })
             HeroText(shown, Modifier.padding(horizontal = SidePadding).height(132.dp))
@@ -156,10 +152,10 @@ private fun TopBar(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Pill("✦  Ask the TV", onOpenAssistant) {
-            onFocused(Hero("Ask the TV", "Say or type what you'd like, like “put on something funny”.", null))
+            onFocused(Hero("Ask the TV", "Say or type what you'd like, like “put on something funny”."))
         }
         Pill("Wi-Fi", onOpenWifi) {
-            onFocused(Hero("Guest Wi-Fi", "Show the Wi-Fi details and a code to scan with your phone.", null))
+            onFocused(Hero("Guest Wi-Fi", "Show the Wi-Fi details and a code to scan with your phone."))
         }
         Spacer(Modifier.weight(1f))
         Text(now.format(DateTimeFormatter.ofPattern("HH:mm")), color = TextMain, fontSize = 22.sp, fontWeight = FontWeight.Light)
@@ -206,19 +202,15 @@ private fun HeroText(hero: Hero, modifier: Modifier = Modifier) {
 }
 
 /**
- * Scrolls the app rows so the row you're on stays comfortably on screen,
- * instead of hugging the very top or bottom edge.
+ * Scrolls the app rows so the row you're on always sits at the top of the list,
+ * like on Apple TV. Rows above it slide fully out of sight instead of peeking
+ * out from under the title.
  */
 @OptIn(ExperimentalFoundationApi::class)
 private val ComfortableScroll = object : BringIntoViewSpec {
     override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float {
-        val top = containerSize * 0.10f
-        val bottom = containerSize * 0.94f
-        return when {
-            offset < top -> offset - top
-            offset + size > bottom -> offset + size - bottom
-            else -> 0f
-        }
+        val top = containerSize * 0.05f // a little room so the lifted tile isn't cut off
+        return offset - top
     }
 }
 
@@ -246,9 +238,11 @@ private fun AppRows(
 
     CompositionLocalProvider(LocalBringIntoViewSpec provides ComfortableScroll) {
         LazyColumn(
-            Modifier.fillMaxSize().fadeTopEdge(),
+            Modifier.fillMaxSize(),
             state = listState,
-            contentPadding = PaddingValues(top = 4.dp, bottom = 32.dp),
+            // The big bottom gap lets even the last row scroll up to the top,
+            // so its name label never gets cut off by the screen edge.
+            contentPadding = PaddingValues(top = 4.dp, bottom = 240.dp),
         ) {
             item {
                 CompositionLocalProvider(LocalBringIntoViewSpec provides defaultSpec) {
@@ -300,7 +294,7 @@ private fun AppRow(
             Tile(
                 label = app.label,
                 onClick = { onOpenApp(app) },
-                onFocus = { onFocused(Hero(app.label, "Press OK to open", app.banner)) },
+                onFocus = { onFocused(Hero(app.label, "Press OK to open", app.glow)) },
                 modifier = if (index == 0 && firstTile != null) Modifier.focusRequester(firstTile) else Modifier,
             ) {
                 if (app.banner != null) {
@@ -315,7 +309,7 @@ private fun AppRow(
             Tile(
                 label = shortcut.label,
                 onClick = shortcut.onClick,
-                onFocus = { onFocused(Hero(shortcut.label, shortcut.about, null)) },
+                onFocus = { onFocused(Hero(shortcut.label, shortcut.about)) },
                 modifier = if (apps.isEmpty() && index == 0 && firstTile != null) Modifier.focusRequester(firstTile) else Modifier,
             ) {
                 IconTileContent(shortcut.label, Color(0xFF2A2A31)) { Text(shortcut.symbol, fontSize = 28.sp) }
@@ -323,17 +317,6 @@ private fun AppRow(
         }
     }
 }
-
-/** Softly fades rows out at the top edge, so a title scrolling away doesn't leave bits behind. */
-private fun Modifier.fadeTopEdge(): Modifier = this
-    .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
-    .drawWithContent {
-        drawContent()
-        drawRect(
-            Brush.verticalGradient(0f to Color.Transparent, 20.dp.toPx() / size.height to Color.Black),
-            blendMode = BlendMode.DstIn,
-        )
-    }
 
 /** For apps without a TV banner: coloured tile with the icon and the name. */
 @Composable
