@@ -22,6 +22,7 @@ class MainActivity : ComponentActivity() {
     private val apps = mutableStateOf<List<TvApp>>(emptyList())
     private val guest = mutableStateOf<GuestInfo?>(null)
     private val assistant = mutableStateOf<AssistantState>(AssistantState.Hidden)
+    private val focusKey = mutableStateOf(0)
     private var agent: AgentConfig? = null
     private var askJob: Job? = null
 
@@ -44,8 +45,10 @@ class MainActivity : ComponentActivity() {
                 HomeScreen(
                     apps = apps.value,
                     guest = guest.value,
+                    focusKey = focusKey.value,
                     onOpenApp = { launchApp(this@MainActivity, it.packageName) },
                     onOpenSettings = { openSettings(this@MainActivity) },
+                    onOpenLiveTv = { launchApp(this@MainActivity, LIVE_TV_PACKAGE) },
                     onOpenAssistant = { openAssistant() },
                 )
                 AssistantPanel(
@@ -66,6 +69,7 @@ class MainActivity : ComponentActivity() {
             apps.value = loaded
             guest.value = withContext(Dispatchers.IO) { loadGuestInfo(this@MainActivity) }
             agent = withContext(Dispatchers.IO) { loadAgentConfig(this@MainActivity) }
+            if (assistant.value == AssistantState.Hidden) focusKey.value++
         }
     }
 

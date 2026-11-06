@@ -33,9 +33,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -67,8 +72,11 @@ private const val TilesPerRow = 5
 fun HomeScreen(
     apps: List<TvApp>,
     guest: GuestInfo?,
+    /** Changes every time the home screen comes back, so focus returns to the first tile. */
+    focusKey: Int,
     onOpenApp: (TvApp) -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenLiveTv: () -> Unit,
     onOpenAssistant: () -> Unit,
 ) {
     var now by remember { mutableStateOf(LocalDateTime.now()) }
@@ -79,8 +87,11 @@ fun HomeScreen(
     val favorites = FAVORITE_PACKAGES.mapNotNull { pkg -> apps.firstOrNull { it.packageName == pkg } }
     val others = apps.filter { it !in favorites }
     val firstTile = remember { FocusRequester() }
-    LaunchedEffect(apps.isNotEmpty()) {
-        if (apps.isNotEmpty()) runCatching { firstTile.requestFocus() }
+    LaunchedEffect(focusKey, apps.isNotEmpty()) {
+        if (apps.isNotEmpty()) {
+            withFrameNanos { } // wait one frame so the tiles exist
+            runCatching { firstTile.requestFocus() }
+        }
     }
 
     Box(Modifier.fillMaxSize()) {
@@ -88,7 +99,7 @@ fun HomeScreen(
         Column(Modifier.fillMaxSize().padding(top = 24.dp)) {
             TopBar(now, guest, onOpenAssistant)
             Spacer(Modifier.height(14.dp))
-            AppRows(favorites, others, firstTile, onOpenApp, onOpenSettings)
+            AppRows(favorites, others, firstTile, onOpenApp, onOpenSettings, onOpenLiveTv)
         }
     }
 }
@@ -162,26 +173,25 @@ private fun AppRows(
     firstTile: FocusRequester,
     onOpenApp: (TvApp) -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenLiveTv: () -> Unit,
 ) {
     // Rows of exactly 5, so moving up and down lands in the same column.
     val otherRows = others.chunked(TilesPerRow)
     val defaultSpec = LocalBringIntoViewSpec.current
 
     CompositionLocalProvider(LocalBringIntoViewSpec provides ComfortableScroll) {
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
-            if (favorites.isNotEmpty()) {
-                item {
-                    Section("Watch") {
-                        CompositionLocalProvider(LocalBringIntoViewSpec provides defaultSpec) {
-                            AppRow(favorites, onOpenApp, firstTile)
-                        }
+        LazyColumn(Modifier.fillMaxSize().fadeTopEdge(), contentPadding = PaddingValues(top = 4.dp, bottom = 24.dp)) {
+            item {
+                Section("Watch") {
+                    CompositionLocalProvider(LocalBringIntoViewSpec provides defaultSpec) {
+                        AppRow(favorites, onOpenApp, firstTile, onOpenLiveTv)
                     }
                 }
             }
             items(otherRows.size) { index ->
                 val content = @Composable {
                     CompositionLocalProvider(LocalBringIntoViewSpec provides defaultSpec) {
-                        AppRow(otherRows[index], onOpenApp, if (favorites.isEmpty() && index == 0) firstTile else null)
+                        AppRow(otherRows[index], onOpenApp, null)
                     }
                 }
                 if (index == 0) Section("All apps", content) else content()
@@ -211,7 +221,13 @@ private fun Section(title: String, content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun AppRow(apps: List<TvApp>, onOpenApp: (TvApp) -> Unit, firstTile: FocusRequester?) {
+private fun AppRow(
+    apps: List<TvApp>,
+    onOpenApp: (TvApp) -> Unit,
+    firstTile: FocusRequester?,
+    /** If set, a "TV & HDMI" tile is added at the end of the row. */
+    onOpenLiveTv: (() -> Unit)? = null,
+) {
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(TileGap),
         // 8dp of room around tiles so the "grow on focus" effect isn't cut off.
@@ -231,8 +247,30 @@ private fun AppRow(apps: List<TvApp>, onOpenApp: (TvApp) -> Unit, firstTile: Foc
                 }
             }
         }
+        if (onOpenLiveTv != null) {
+            item {
+                Tile(
+                    label = "TV & HDMI",
+                    onClick = onOpenLiveTv,
+                    modifier = if (apps.isEmpty() && firstTile != null) Modifier.focusRequester(firstTile) else Modifier,
+                ) {
+                    IconTileContent("📺", "TV & HDMI", Color(0xFF2E3550))
+                }
+            }
+        }
     }
 }
+
+/** Softly fades rows out at the top edge, so a title scrolling away doesn't leave bits behind. */
+private fun Modifier.fadeTopEdge(): Modifier = this
+    .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+    .drawWithContent {
+        drawContent()
+        drawRect(
+            Brush.verticalGradient(0f to Color.Transparent, 24.dp.toPx() / size.height to Color.Black),
+            blendMode = BlendMode.DstIn,
+        )
+    }
 
 /** For apps without a TV banner: coloured tile with the icon and the app's name. */
 @Composable

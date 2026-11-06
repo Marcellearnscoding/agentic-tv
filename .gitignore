@@ -3,3 +3,5 @@ scripts/.tv-ip
 *.apk
 scripts/.disabled-launchers
 scripts/.disabled-bloat
+scripts/.tv-token
+scripts/.screensaver-before

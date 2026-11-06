@@ -14,7 +14,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 
 const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") });
-const TV_TOKEN_SHA256 = "f4db6974e34de57dd119705bd39f8bc713089eef9f33b6906e6cceff548ebec6";
+const TV_TOKEN_SHA256 = "2582aaa1d1e82c1d75a0e0ce0014e85f6d9909e78930741ec0e219d15864872e";
 
 async function sha256(text: string): Promise<string> {
   const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
