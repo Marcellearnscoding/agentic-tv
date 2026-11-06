@@ -76,15 +76,15 @@ import java.time.format.DateTimeFormatter
  *   │  [tile]   [tile]   [tile]   [tile]                   │  next row peeks in
  *   └──────────────────────────────────────────────────────┘
  *
- * 48dp side margins (TVs can cut off the edges). Tiles are 192 x 108 (16:9),
- * 4 per row.
+ * 48dp side margins (TVs can cut off the edges). Tiles are 156 x 88 (16:9),
+ * 5 per row, so all five streaming apps fit in one row.
  */
 private val SidePadding = 48.dp
-private val TileWidth = 192.dp
-private val TileHeight = 108.dp
-private val TileGap = 18.dp
+private val TileWidth = 156.dp
+private val TileHeight = 88.dp
+private val TileGap = 14.dp
 private val TrayPadding = 14.dp
-private const val TilesPerRow = 4
+private const val TilesPerRow = 5
 
 /** The big title above the tiles: the thing you're on right now, and its colour. */
 data class Hero(val title: String, val subtitle: String = "", val glow: Color? = null)
@@ -270,7 +270,7 @@ private fun AppRows(
     }
 }
 
-/** One row of up to 4 tiles. The row you're on sits on a frosted strip. */
+/** One row of up to 5 tiles. The row you're on sits on a frosted strip. */
 @Composable
 private fun AppRow(
     apps: List<TvApp>,
