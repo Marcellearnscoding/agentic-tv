@@ -18,16 +18,20 @@ import java.net.URL
  *    of actions, like {"type":"open_app","package":"com.netflix.ninja"}.
  * 3. [runActions] does those actions on the TV.
  *
- * Privacy: only the words you said and the names of installed apps are sent.
- * Nothing is stored on the server.
+ * Privacy: only the words you said, the names of installed apps and, for a
+ * person (not Guest), their name and the likes Ask remembered are sent.
+ * Nothing is stored on the server; the likes live only on the TV.
  */
 data class AgentAnswer(val reply: String, val actions: List<JSONObject>)
 
-suspend fun askAgent(config: AgentConfig, text: String, apps: List<TvApp>): AgentAnswer =
+suspend fun askAgent(config: AgentConfig, text: String, apps: List<TvApp>, person: Person?): AgentAnswer =
     withContext(Dispatchers.IO) {
         val body = JSONObject()
             .put("text", text)
             .put("apps", JSONArray(apps.map { JSONObject().put("name", it.label).put("package", it.packageName) }))
+        if (person != null) {
+            body.put("person", JSONObject().put("name", person.name).put("likes", JSONArray(person.likes)))
+        }
 
         val connection = URL(config.url).openConnection() as HttpURLConnection
         try {

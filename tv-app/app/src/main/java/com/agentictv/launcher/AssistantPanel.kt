@@ -125,7 +125,7 @@ fun AssistantPanel(
 }
 
 @Composable
-private fun PanelButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+internal fun PanelButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
     val shape = RoundedCornerShape(50)

@@ -66,7 +66,8 @@ import java.time.format.DateTimeFormatter
  * Screen layout. The TV is 1280x720, which Android treats as about 960 x 540 "dp".
  *
  *   ┌──────────────────────────────────────────────────────┐
- *   │ GOOD AFTERNOON           (Ask)(Inputs)(Wi-Fi)(Settings)
+ *   │ (Guest)(Marcel)(+)       (Ask)(Inputs)(Wi-Fi)(Settings)
+ *   │ GOOD AFTERNOON, MARCEL                               │
  *   │ 13:55 | FRIDAY 6 NOVEMBER                            │
  *   │                  ( coloured glow )                   │
  *   │ Netflix                       ← the app you're on    │
@@ -93,6 +94,7 @@ data class Hero(val title: String, val subtitle: String = "", val glow: Color? =
 fun HomeScreen(
     apps: List<TvApp>,
     guest: GuestInfo?,
+    profiles: Profiles,
     /** Changes every time the home screen comes back, so focus returns to the first tile. */
     focusKey: Int,
     onOpenApp: (TvApp) -> Unit,
@@ -100,10 +102,15 @@ fun HomeScreen(
     onOpenLiveTv: () -> Unit,
     onOpenAssistant: () -> Unit,
     onOpenWifi: () -> Unit,
+    /** A name chip was pressed: switch to that person (or, if it's already them, show their details). */
+    onPersonChip: (String) -> Unit,
+    onAddPerson: () -> Unit,
 ) {
     var hero by remember { mutableStateOf(Hero("")) }
 
-    val favorites = FAVORITE_PACKAGES.mapNotNull { pkg -> apps.firstOrNull { it.packageName == pkg } }
+    val favorites = profiles.sortForMe(
+        FAVORITE_PACKAGES.mapNotNull { pkg -> apps.firstOrNull { it.packageName == pkg } },
+    ) { it.packageName }
     val others = apps.filter { it !in favorites }
     val rows = (favorites.chunked(TilesPerRow) + others.chunked(TilesPerRow)).filter { it.isNotEmpty() }
 
@@ -120,6 +127,9 @@ fun HomeScreen(
         Column(Modifier.fillMaxSize().padding(top = 30.dp)) {
             Header(
                 guest = guest,
+                profiles = profiles,
+                onPersonChip = onPersonChip,
+                onAddPerson = onAddPerson,
                 onFocused = { hero = it },
                 onOpenAssistant = onOpenAssistant,
                 onOpenLiveTv = onOpenLiveTv,
@@ -137,6 +147,9 @@ fun HomeScreen(
 @Composable
 private fun Header(
     guest: GuestInfo?,
+    profiles: Profiles,
+    onPersonChip: (String) -> Unit,
+    onAddPerson: () -> Unit,
     onFocused: (Hero) -> Unit,
     onOpenAssistant: () -> Unit,
     onOpenLiveTv: () -> Unit,
@@ -148,37 +161,93 @@ private fun Header(
         while (true) { now = LocalDateTime.now(); delay(1_000) }
     }
     val is24h = DateFormat.is24HourFormat(LocalContext.current)
-    val greeting = guest?.welcome?.takeIf { it.isNotBlank() } ?: when (now.hour) {
+    val timeGreeting = when (now.hour) {
         in 5..11 -> "Good morning"
         in 12..17 -> "Good afternoon"
         else -> "Good evening"
     }
+    val greeting = profiles.current?.let { "$timeGreeting, ${it.name}" }
+        ?: guest?.welcome?.takeIf { it.isNotBlank() } ?: timeGreeting
 
-    Row(Modifier.fillMaxWidth().padding(horizontal = SidePadding), verticalAlignment = Alignment.Top) {
-        Column {
-            Caps(greeting)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    now.format(DateTimeFormatter.ofPattern(if (is24h) "HH:mm" else "h:mm")),
-                    color = TextMain, fontSize = 46.sp, fontWeight = FontWeight.Light,
-                )
-                if (!is24h) {
-                    Text(
-                        if (now.hour < 12) " AM" else " PM",
-                        color = TextMain, fontSize = 16.sp, fontWeight = FontWeight.Light,
-                    )
+    Column(Modifier.fillMaxWidth().padding(horizontal = SidePadding)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            // Who's watching: Guest, then each person, then "+" to add someone.
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                val names = listOf(GuestName) + profiles.people.map { it.name }
+                names.forEach { name ->
+                    Chip(name, active = name == profiles.active, onClick = { onPersonChip(name) }) {
+                        onFocused(
+                            if (name == GuestName) Hero("Guest", "For visitors. Ask won't remember anything.")
+                            else if (name == profiles.active) Hero(name, "Press OK to see what Ask remembers about you.")
+                            else Hero(name, "Press OK to switch to $name.")
+                        )
+                    }
                 }
-                Box(Modifier.padding(horizontal = 16.dp).width(1.dp).height(26.dp).background(TextDim.copy(alpha = 0.5f)))
-                Caps(now.format(DateTimeFormatter.ofPattern("EEEE  d MMMM")))
+                Chip("+", active = false, onClick = onAddPerson) {
+                    onFocused(Hero("Add a person", "Get your own app order, and Ask remembers what you like."))
+                }
+            }
+            Spacer(Modifier.weight(1f))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Pill("✦  Ask", onOpenAssistant) { onFocused(Hero("Ask the TV", "Say or type what you'd like, like “put on something funny”.")) }
+                Pill("Inputs", onOpenLiveTv) { onFocused(Hero("TV & HDMI", "Live TV and the HDMI inputs.")) }
+                Pill("Wi-Fi", onOpenWifi) { onFocused(Hero("Guest Wi-Fi", "Show the Wi-Fi details and a code to scan with your phone.")) }
+                Pill("Settings", onOpenSettings) { onFocused(Hero("Settings", "The TV's own settings.")) }
             }
         }
-        Spacer(Modifier.weight(1f))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 4.dp)) {
-            Pill("✦  Ask", onOpenAssistant) { onFocused(Hero("Ask the TV", "Say or type what you'd like, like “put on something funny”.")) }
-            Pill("Inputs", onOpenLiveTv) { onFocused(Hero("TV & HDMI", "Live TV and the HDMI inputs.")) }
-            Pill("Wi-Fi", onOpenWifi) { onFocused(Hero("Guest Wi-Fi", "Show the Wi-Fi details and a code to scan with your phone.")) }
-            Pill("Settings", onOpenSettings) { onFocused(Hero("Settings", "The TV's own settings.")) }
+        Spacer(Modifier.height(18.dp))
+        Caps(greeting)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                now.format(DateTimeFormatter.ofPattern(if (is24h) "HH:mm" else "h:mm")),
+                color = TextMain, fontSize = 46.sp, fontWeight = FontWeight.Light,
+            )
+            if (!is24h) {
+                Text(
+                    if (now.hour < 12) " AM" else " PM",
+                    color = TextMain, fontSize = 16.sp, fontWeight = FontWeight.Light,
+                )
+            }
+            Box(Modifier.padding(horizontal = 16.dp).width(1.dp).height(26.dp).background(TextDim.copy(alpha = 0.5f)))
+            Caps(now.format(DateTimeFormatter.ofPattern("EEEE  d MMMM")))
         }
+    }
+}
+
+/**
+ * A small name chip. The person using the TV has a soft filled chip;
+ * the one the remote is on turns white.
+ */
+@Composable
+private fun Chip(label: String, active: Boolean, onClick: () -> Unit, onFocus: () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    val focused by interaction.collectIsFocusedAsState()
+    LaunchedEffect(focused) { if (focused) onFocus() }
+    val scale by animateFloatAsState(if (focused) 1.08f else 1f, spring(stiffness = 600f), label = "chip")
+    val shape = RoundedCornerShape(50)
+    Box(
+        modifier = Modifier
+            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .clip(shape)
+            .background(
+                when {
+                    focused -> FrostedFocused
+                    active -> Color.White.copy(alpha = 0.22f)
+                    else -> Color.Transparent
+                }
+            )
+            .clickable(interactionSource = interaction, indication = null, onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 6.dp),
+    ) {
+        Text(
+            label,
+            color = when {
+                focused -> Background
+                active -> TextMain
+                else -> TextDim
+            },
+            fontSize = 13.sp, fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium,
+        )
     }
 }
 

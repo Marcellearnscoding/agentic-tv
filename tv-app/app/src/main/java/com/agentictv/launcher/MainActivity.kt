@@ -24,6 +24,8 @@ class MainActivity : ComponentActivity() {
     private val assistant = mutableStateOf<AssistantState>(AssistantState.Hidden)
     private val focusKey = mutableStateOf(0)
     private val showWifi = mutableStateOf(false)
+    private val profiles = mutableStateOf(Profiles(emptyList(), GuestName))
+    private val people = mutableStateOf<PeopleState>(PeopleState.Hidden)
     private var agent: AgentConfig? = null
     private var askJob: Job? = null
 
@@ -41,20 +43,35 @@ class MainActivity : ComponentActivity() {
             BackHandler {
                 // Back closes the assistant. On the home screen itself, Back does nothing.
                 if (showWifi.value) showWifi.value = false
+                else if (people.value != PeopleState.Hidden) people.value = PeopleState.Hidden
                 else if (assistant.value != AssistantState.Hidden) closeAssistant()
             }
             Box {
                 HomeScreen(
                     apps = apps.value,
                     guest = guest.value,
+                    profiles = profiles.value,
                     focusKey = focusKey.value,
-                    onOpenApp = { launchApp(this@MainActivity, it.packageName) },
+                    onOpenApp = { openApp(it.packageName) },
                     onOpenSettings = { openSettings(this@MainActivity) },
                     onOpenLiveTv = { launchApp(this@MainActivity, LIVE_TV_PACKAGE) },
                     onOpenAssistant = { openAssistant() },
                     onOpenWifi = { showWifi.value = true },
+                    onPersonChip = { name ->
+                        if (name == profiles.value.active && name != GuestName) people.value = PeopleState.Managing(name)
+                        else updateProfiles { it.switchTo(name) }
+                    },
+                    onAddPerson = { people.value = PeopleState.Adding },
                 )
                 if (showWifi.value) GuestPanel(guest.value) { showWifi.value = false }
+                PeoplePanel(
+                    state = people.value,
+                    profiles = profiles.value,
+                    onAdd = { name -> updateProfiles { it.add(name) }; closePeople() },
+                    onForget = { updateProfiles { it.forgetLikes() } },
+                    onRemove = { name -> updateProfiles { it.remove(name) }; closePeople() },
+                    onClose = { closePeople() },
+                )
                 AssistantPanel(
                     state = assistant.value,
                     onSpeak = { startVoice() },
@@ -72,6 +89,7 @@ class MainActivity : ComponentActivity() {
             val loaded = withContext(Dispatchers.IO) { loadInstalledApps(this@MainActivity) }
             apps.value = loaded
             guest.value = withContext(Dispatchers.IO) { loadGuestInfo(this@MainActivity) }
+            profiles.value = withContext(Dispatchers.IO) { loadProfiles(this@MainActivity) }
             agent = withContext(Dispatchers.IO) { loadAgentConfig(this@MainActivity) }
             if (assistant.value == AssistantState.Hidden) focusKey.value++
         }
@@ -82,7 +100,25 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         closeAssistant()
         showWifi.value = false
+        people.value = PeopleState.Hidden
         focusKey.value++
+    }
+
+    /** Changes the people list and saves it on the TV. */
+    private fun updateProfiles(change: (Profiles) -> Profiles) {
+        val updated = change(profiles.value)
+        profiles.value = updated
+        lifecycleScope.launch(Dispatchers.IO) { saveProfiles(this@MainActivity, updated) }
+    }
+
+    private fun closePeople() {
+        people.value = PeopleState.Hidden
+        focusKey.value++
+    }
+
+    /** Opens an app and counts it, so each person's favourite apps move to the front. */
+    private fun openApp(pkg: String) {
+        if (launchApp(this, pkg)) updateProfiles { it.countOpen(pkg) }
     }
 
     /** The search / mic key on the remote opens the assistant straight away. */
@@ -119,10 +155,17 @@ class MainActivity : ComponentActivity() {
         assistant.value = AssistantState.Thinking(question)
         askJob?.cancel()
         askJob = lifecycleScope.launch {
-            val answer = runCatching { askAgent(config, question, apps.value) }.getOrElse {
+            val answer = runCatching { askAgent(config, question, apps.value, profiles.value.current) }.getOrElse {
                 AgentAnswer("Sorry, I couldn't reach the assistant. Is the TV online?", emptyList())
             }
             val opensSomething = answer.actions.any { it.optString("type") in setOf("open_app", "search_youtube", "open_settings") }
+            // "remember" and "forget" are about the person, not the TV, so handle them here.
+            answer.actions.forEach { action ->
+                when (action.optString("type")) {
+                    "remember" -> updateProfiles { it.remember(action.optString("note")) }
+                    "forget_likes" -> updateProfiles { it.forgetLikes() }
+                }
+            }
             val problem = runActions(this@MainActivity, answer.actions)
             val reply = listOfNotNull(answer.reply.ifBlank { null }, problem).joinToString(" ").ifBlank { "Done!" }
             // If an app opened, close the panel so it's gone when you come back.

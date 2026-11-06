@@ -75,6 +75,9 @@ After any change is merged to `main`, wait for the green tick on GitHub, then ru
   by the TV's own Google speech screen.
 - When you ask something, only your words and the names of installed apps go to
   our Supabase function, which asks Claude. Nothing is stored there.
+- People (the name chips at the top left) are saved only on the TV. For a family
+  member, their name and what Ask remembered they like are sent along with each
+  question. Guests are never remembered. Press your chip again to see or erase it.
 - The Claude API key lives in Supabase secrets, never on the TV or in GitHub.
   The TV proves it's ours with a token that only exists on the TV.
 - Guest Wi-Fi details are saved only on the TV, never in GitHub.
@@ -87,5 +90,5 @@ After any change is merged to `main`, wait for the green tick on GitHub, then ru
 1. ✅ Basic home screen: clock, greeting, favourite apps, all apps, settings
 2. ✅ Look great on the 720p screen: wallpaper, guest welcome card with Wi-Fi QR
 3. ✅ AI assistant: ask for something in plain words, the TV does it
-4. Guest profiles with their own memory of what they like
+4. ✅ People: name chips, own app order, Ask remembers what each person likes
 5. Tap an NFC tag with your phone to use it as a remote
