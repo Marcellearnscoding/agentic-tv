@@ -43,13 +43,13 @@ fun WeatherPanel(weather: Weather, onClose: () -> Unit) {
     val today = weather.days.firstOrNull()
 
     Box(
-        Modifier.fillMaxSize().background(Color(0xD905060B))
+        Modifier.fillMaxSize().background(Color(0xF205060B))
             .focusRequester(focus)
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClose),
         contentAlignment = Alignment.Center,
     ) {
         Column(
-            Modifier.width(760.dp).clip(RoundedCornerShape(24.dp)).background(Color.White.copy(alpha = 0.08f)).padding(28.dp),
+            Modifier.width(760.dp).clip(RoundedCornerShape(24.dp)).background(Color(0xFF1C1C21)).padding(28.dp),
             verticalArrangement = Arrangement.spacedBy(22.dp),
         ) {
             // Now
@@ -75,7 +75,7 @@ fun WeatherPanel(weather: Weather, onClose: () -> Unit) {
                     weather.hours.forEach { hour ->
                         ForecastCell(
                             top = hour.time.format(DateTimeFormatter.ofPattern("HH:mm")),
-                            symbol = weatherLook(hour.code, hour.time.hour in 7..19).first,
+                            symbol = weatherLook(hour.code, hour.time.hour in 7..18).first,
                             bottom = "${hour.temperature}°",
                         )
                     }

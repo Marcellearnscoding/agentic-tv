@@ -120,8 +120,11 @@ fun HomeScreen(
     val firstTile = remember { FocusRequester() }
     LaunchedEffect(focusKey, apps.isNotEmpty()) {
         if (apps.isNotEmpty()) {
-            withFrameNanos { } // wait one frame so the tiles exist
-            runCatching { firstTile.requestFocus() }
+            // Wait until the tiles exist (can take a few frames), then put the remote on the first one.
+            for (attempt in 1..20) {
+                withFrameNanos { }
+                if (runCatching { firstTile.requestFocus() }.isSuccess) break
+            }
         }
     }
 
