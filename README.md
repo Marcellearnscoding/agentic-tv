@@ -85,11 +85,27 @@ After any change is merged to `main`, wait for the green tick on GitHub, then ru
 - `tv-app/app/debug.keystore` is the standard Android "debug" signing key. It isn't
   a secret; it just makes sure each new build installs over the old one.
 
+## Phone remote and NFC tag
+
+The TV serves a tiny web page on your Wi-Fi. Press **Phone** on the home screen and
+scan the QR code: your phone opens the page. Tap the box, use the 🎤 on your phone
+keyboard, and the words go to the assistant. There are volume buttons too.
+
+To make an NFC tag (any NTAG213/215 sticker works):
+1. Copy the link shown under the QR code (it looks like `http://192.168.1.81:8765/?k=...`).
+2. On iPhone, use the free **NFC Tools** app: Write → Add a record → URL → paste the link → Write,
+   and hold the tag to the top of the phone. (Android phones work the same way.)
+3. Stick the tag near the TV. Tapping it with a phone opens the remote page.
+
+Tip: in your router, reserve the TV's IP address (192.168.1.81), so the link and the
+tag keep working. Privacy: the page only works on your home Wi-Fi and needs the
+secret key in the link. The key is made on the TV and never stored in GitHub.
+
 ## Roadmap
 
 1. ✅ Basic home screen: clock, greeting, favourite apps, all apps, settings
 2. ✅ Look great on the 720p screen: wallpaper, guest welcome card with Wi-Fi QR
 3. ✅ AI assistant: ask for something in plain words, the TV does it
 4. ✅ People: name chips, own app order, Ask remembers what each person likes
-5. Tap an NFC tag with your phone to use it as a remote
+5. ✅ Phone remote: scan the QR code ("Phone" button) or tap an NFC tag, then talk to the TV from your phone
 6. A wallpaper for each person, and our own screensaver

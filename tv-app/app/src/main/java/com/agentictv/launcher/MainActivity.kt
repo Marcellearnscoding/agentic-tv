@@ -28,6 +28,8 @@ class MainActivity : ComponentActivity() {
     private val showWifi = mutableStateOf(false)
     private val profiles = mutableStateOf(Profiles(emptyList(), GuestName))
     private val people = mutableStateOf<PeopleState>(PeopleState.Hidden)
+    private val showPhone = mutableStateOf(false)
+    private lateinit var phoneRemote: PhoneRemote
     private var agent: AgentConfig? = null
     private var askJob: Job? = null
 
@@ -41,10 +43,13 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        phoneRemote = PhoneRemote(this) { text -> withContext(Dispatchers.Main) { answer(text) } }
+        phoneRemote.start()
         setContent {
             BackHandler {
                 // Back closes the assistant. On the home screen itself, Back does nothing.
                 if (showWifi.value) showWifi.value = false
+                else if (showPhone.value) showPhone.value = false
                 else if (people.value != PeopleState.Hidden) people.value = PeopleState.Hidden
                 else if (assistant.value != AssistantState.Hidden) closeAssistant()
             }
@@ -59,6 +64,7 @@ class MainActivity : ComponentActivity() {
                     onOpenLiveTv = { launchApp(this@MainActivity, LIVE_TV_PACKAGE) },
                     onOpenAssistant = { openAssistant() },
                     onOpenWifi = { showWifi.value = true },
+                    onOpenPhone = { showPhone.value = true },
                     onPersonChip = { name ->
                         if (name == profiles.value.active && name != GuestName) people.value = PeopleState.Managing(name)
                         else updateProfiles { it.switchTo(name) }
@@ -66,6 +72,7 @@ class MainActivity : ComponentActivity() {
                     onAddPerson = { people.value = PeopleState.Adding },
                 )
                 if (showWifi.value) GuestPanel(guest.value) { showWifi.value = false }
+                if (showPhone.value) PhonePanel(phoneRemote.link()) { showPhone.value = false }
                 PeoplePanel(
                     state = people.value,
                     profiles = profiles.value,
@@ -102,6 +109,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         closeAssistant()
         showWifi.value = false
+        showPhone.value = false
         people.value = PeopleState.Hidden
         focusKey.value++
     }
@@ -152,32 +160,42 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onDestroy() {
+        phoneRemote.stop()
+        super.onDestroy()
+    }
+
     private fun ask(question: String) {
-        val config = agent ?: run { assistant.value = AssistantState.NotSetUp; return }
-        assistant.value = AssistantState.Thinking(question)
         askJob?.cancel()
-        askJob = lifecycleScope.launch {
-            val answer = try {
-                askAgent(config, question, apps.value, profiles.value.current)
-            } catch (e: CancellationException) {
-                throw e // asked again or closed the panel: stay quiet
-            } catch (e: Exception) {
-                Log.w("AgenticTV", "Assistant request failed", e)
-                AgentAnswer("Sorry, I couldn't reach the assistant. Is the TV online?", emptyList())
-            }
-            val opensSomething = answer.actions.any { it.optString("type") in setOf("open_app", "search_youtube", "open_settings") }
-            // "remember" and "forget" are about the person, not the TV, so handle them here.
-            answer.actions.forEach { action ->
-                when (action.optString("type")) {
-                    "remember" -> updateProfiles { it.remember(action.optString("note")) }
-                    "forget_likes" -> updateProfiles { it.forgetLikes() }
-                }
-            }
-            val problem = runActions(this@MainActivity, answer.actions)
-            val reply = listOfNotNull(answer.reply.ifBlank { null }, problem).joinToString(" ").ifBlank { "Done!" }
-            // If an app opened, close the panel so it's gone when you come back.
-            assistant.value = if (opensSomething && problem == null) AssistantState.Hidden
-            else AssistantState.Answered(question, reply)
+        askJob = lifecycleScope.launch { answer(question) }
+    }
+
+    /** Asks the assistant, shows the answer on the TV and returns it (for the phone remote). */
+    private suspend fun answer(question: String): String {
+        val config = agent ?: run { assistant.value = AssistantState.NotSetUp; return "The assistant isn't set up on this TV yet." }
+        showPhone.value = false
+        assistant.value = AssistantState.Thinking(question)
+        val answer = try {
+            askAgent(config, question, apps.value, profiles.value.current)
+        } catch (e: CancellationException) {
+            throw e // asked again or closed the panel: stay quiet
+        } catch (e: Exception) {
+            Log.w("AgenticTV", "Assistant request failed", e)
+            AgentAnswer("Sorry, I couldn't reach the assistant. Is the TV online?", emptyList())
         }
+        val opensSomething = answer.actions.any { it.optString("type") in setOf("open_app", "search_youtube", "open_settings") }
+        // "remember" and "forget" are about the person, not the TV, so handle them here.
+        answer.actions.forEach { action ->
+            when (action.optString("type")) {
+                "remember" -> updateProfiles { it.remember(action.optString("note")) }
+                "forget_likes" -> updateProfiles { it.forgetLikes() }
+            }
+        }
+        val problem = runActions(this@MainActivity, answer.actions)
+        val reply = listOfNotNull(answer.reply.ifBlank { null }, problem).joinToString(" ").ifBlank { "Done!" }
+        // If an app opened, close the panel so it's gone when you come back.
+        assistant.value = if (opensSomething && problem == null) AssistantState.Hidden
+        else AssistantState.Answered(question, reply)
+        return reply
     }
 }
