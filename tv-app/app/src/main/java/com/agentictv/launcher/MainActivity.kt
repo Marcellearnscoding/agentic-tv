@@ -15,6 +15,7 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -29,6 +30,8 @@ class MainActivity : ComponentActivity() {
     private val profiles = mutableStateOf(Profiles(emptyList(), GuestName))
     private val people = mutableStateOf<PeopleState>(PeopleState.Hidden)
     private val showPhone = mutableStateOf(false)
+    private val weather = mutableStateOf<Weather?>(null)
+    private val showWeather = mutableStateOf(false)
     private lateinit var phoneRemote: PhoneRemote
     private var agent: AgentConfig? = null
     private var askJob: Job? = null
@@ -45,11 +48,19 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         phoneRemote = PhoneRemote(this) { text -> withContext(Dispatchers.Main) { answer(text) } }
         phoneRemote.start()
+        // Fresh weather every 30 minutes (only if a town was set with scripts/set-weather.sh).
+        lifecycleScope.launch {
+            while (true) {
+                refreshWeather()
+                delay(30 * 60 * 1000L)
+            }
+        }
         setContent {
             BackHandler {
                 // Back closes the assistant. On the home screen itself, Back does nothing.
                 if (showWifi.value) showWifi.value = false
                 else if (showPhone.value) showPhone.value = false
+                else if (showWeather.value) showWeather.value = false
                 else if (people.value != PeopleState.Hidden) people.value = PeopleState.Hidden
                 else if (assistant.value != AssistantState.Hidden) closeAssistant()
             }
@@ -58,6 +69,8 @@ class MainActivity : ComponentActivity() {
                     apps = apps.value,
                     guest = guest.value,
                     profiles = profiles.value,
+                    weather = weather.value,
+                    onOpenWeather = { showWeather.value = true },
                     focusKey = focusKey.value,
                     onOpenApp = { openApp(it.packageName) },
                     onOpenSettings = { openSettings(this@MainActivity) },
@@ -73,6 +86,7 @@ class MainActivity : ComponentActivity() {
                 )
                 if (showWifi.value) GuestPanel(guest.value) { showWifi.value = false }
                 if (showPhone.value) PhonePanel(phoneRemote.link()) { showPhone.value = false }
+                if (showWeather.value) weather.value?.let { WeatherPanel(it) { showWeather.value = false } }
                 PeoplePanel(
                     state = people.value,
                     profiles = profiles.value,
@@ -101,6 +115,7 @@ class MainActivity : ComponentActivity() {
             profiles.value = withContext(Dispatchers.IO) { loadProfiles(this@MainActivity) }
             agent = withContext(Dispatchers.IO) { loadAgentConfig(this@MainActivity) }
             if (assistant.value == AssistantState.Hidden) focusKey.value++
+            refreshWeather()
         }
     }
 
@@ -110,8 +125,17 @@ class MainActivity : ComponentActivity() {
         closeAssistant()
         showWifi.value = false
         showPhone.value = false
+        showWeather.value = false
         people.value = PeopleState.Hidden
         focusKey.value++
+    }
+
+    /** Gets new weather if a town is set and the last update is old (or missing). */
+    private suspend fun refreshWeather() {
+        val place = withContext(Dispatchers.IO) { loadWeatherPlace(this@MainActivity) } ?: run { weather.value = null; return }
+        val old = weather.value
+        if (old != null && old.place == place.name && System.currentTimeMillis() - old.fetchedAt < 25 * 60 * 1000L) return
+        fetchWeather(place)?.let { weather.value = it }
     }
 
     /** Changes the people list and saves it on the TV. */

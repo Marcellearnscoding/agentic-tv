@@ -95,6 +95,8 @@ fun HomeScreen(
     apps: List<TvApp>,
     guest: GuestInfo?,
     profiles: Profiles,
+    weather: Weather?,
+    onOpenWeather: () -> Unit,
     /** Changes every time the home screen comes back, so focus returns to the first tile. */
     focusKey: Int,
     onOpenApp: (TvApp) -> Unit,
@@ -129,6 +131,8 @@ fun HomeScreen(
             Header(
                 guest = guest,
                 profiles = profiles,
+                weather = weather,
+                onOpenWeather = onOpenWeather,
                 onPersonChip = onPersonChip,
                 onAddPerson = onAddPerson,
                 onFocused = { hero = it },
@@ -150,6 +154,8 @@ fun HomeScreen(
 private fun Header(
     guest: GuestInfo?,
     profiles: Profiles,
+    weather: Weather?,
+    onOpenWeather: () -> Unit,
     onPersonChip: (String) -> Unit,
     onAddPerson: () -> Unit,
     onFocused: (Hero) -> Unit,
@@ -214,6 +220,17 @@ private fun Header(
             }
             Box(Modifier.padding(horizontal = 16.dp).width(1.dp).height(26.dp).background(TextDim.copy(alpha = 0.5f)))
             Caps(now.format(DateTimeFormatter.ofPattern("EEEE  d MMMM")))
+            if (weather != null) {
+                val (symbol, words) = weatherLook(weather.code, weather.isDay)
+                Spacer(Modifier.width(14.dp))
+                Pill("$symbol  ${weather.temperature}°  ${words}", onOpenWeather) {
+                    val today = weather.days.firstOrNull()
+                    onFocused(Hero(
+                        "${weather.temperature}° in ${weather.place}",
+                        if (today != null) "Today ${today.high}° / ${today.low}°. Press OK for the forecast." else "Press OK for the forecast.",
+                    ))
+                }
+            }
         }
     }
 }
