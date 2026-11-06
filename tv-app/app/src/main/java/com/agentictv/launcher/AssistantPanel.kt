@@ -68,7 +68,7 @@ fun AssistantPanel(
             modifier = Modifier
                 .width(560.dp)
                 .clip(RoundedCornerShape(20.dp))
-                .background(Color(0xFF1A1E33))
+                .background(Color(0xFF1C1C21))
                 .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {

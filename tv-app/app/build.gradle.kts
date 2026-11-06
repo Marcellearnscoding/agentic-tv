@@ -12,8 +12,8 @@ android {
         applicationId = "com.agentictv.launcher"
         minSdk = 30 // Android 11, what the guest room TV runs
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 4
+        versionName = "0.4.0"
     }
 
     // One fixed key, so every new build installs over the old one on the TV.

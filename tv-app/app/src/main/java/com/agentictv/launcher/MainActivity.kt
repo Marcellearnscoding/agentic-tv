@@ -22,6 +22,8 @@ class MainActivity : ComponentActivity() {
     private val apps = mutableStateOf<List<TvApp>>(emptyList())
     private val guest = mutableStateOf<GuestInfo?>(null)
     private val assistant = mutableStateOf<AssistantState>(AssistantState.Hidden)
+    private val focusKey = mutableStateOf(0)
+    private val showWifi = mutableStateOf(false)
     private var agent: AgentConfig? = null
     private var askJob: Job? = null
 
@@ -38,16 +40,21 @@ class MainActivity : ComponentActivity() {
         setContent {
             BackHandler {
                 // Back closes the assistant. On the home screen itself, Back does nothing.
-                if (assistant.value != AssistantState.Hidden) closeAssistant()
+                if (showWifi.value) showWifi.value = false
+                else if (assistant.value != AssistantState.Hidden) closeAssistant()
             }
             Box {
                 HomeScreen(
                     apps = apps.value,
                     guest = guest.value,
+                    focusKey = focusKey.value,
                     onOpenApp = { launchApp(this@MainActivity, it.packageName) },
                     onOpenSettings = { openSettings(this@MainActivity) },
+                    onOpenLiveTv = { launchApp(this@MainActivity, LIVE_TV_PACKAGE) },
                     onOpenAssistant = { openAssistant() },
+                    onOpenWifi = { showWifi.value = true },
                 )
+                if (showWifi.value) GuestPanel(guest.value) { showWifi.value = false }
                 AssistantPanel(
                     state = assistant.value,
                     onSpeak = { startVoice() },
@@ -66,7 +73,16 @@ class MainActivity : ComponentActivity() {
             apps.value = loaded
             guest.value = withContext(Dispatchers.IO) { loadGuestInfo(this@MainActivity) }
             agent = withContext(Dispatchers.IO) { loadAgentConfig(this@MainActivity) }
+            if (assistant.value == AssistantState.Hidden) focusKey.value++
         }
+    }
+
+    /** Pressing Home while already on the home screen: close pop-ups, go back to the top. */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        closeAssistant()
+        showWifi.value = false
+        focusKey.value++
     }
 
     /** The search / mic key on the remote opens the assistant straight away. */

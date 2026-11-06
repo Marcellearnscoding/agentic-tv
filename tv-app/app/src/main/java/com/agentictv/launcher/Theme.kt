@@ -1,51 +1,67 @@
 package com.agentictv.launcher
 
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.unit.dp
 
 // All the colours in one place. Change these to re-theme the whole screen.
-val Accent = Color(0xFF8E9BFF)
-val TextMain = Color(0xFFF4F5FA)
-val TextDim = Color(0xFFA7ADC2)
-val CardColor = Color(0x33FFFFFF)      // see-through white, so the wallpaper shows
-val CardBorder = Color(0x22FFFFFF)
-val TileColor = Color(0xFF232842)
-
-/** The colours of the wallpaper glow, changing with the time of day. */
-private fun palette(hour: Int): List<Color> = when (hour) {
-    in 6..10 -> listOf(Color(0xFF1B2A4A), Color(0xFFFF9A6B), Color(0xFF6BC4FF))   // morning
-    in 11..17 -> listOf(Color(0xFF14233F), Color(0xFF4FB3FF), Color(0xFF7CF2C4))  // day
-    in 18..21 -> listOf(Color(0xFF1A1636), Color(0xFFFF6BA8), Color(0xFF7C6BFF))  // evening
-    else -> listOf(Color(0xFF0B0D1A), Color(0xFF3B2F8F), Color(0xFF1F5F8F))        // night
-}
+// The look: calm and dark, with colour coming from the apps themselves.
+val Background = Color(0xFF0A0A0D)
+val Accent = Color(0xFFFFFFFF)          // focus highlights are white, not coloured
+val TextMain = Color(0xFFF5F5F7)
+val TextDim = Color(0xFF9A9AA2)
+val Frosted = Color(0x2EFFFFFF)         // see-through white for pills and panels
+val FrostedFocused = Color(0xE6FFFFFF)  // almost solid white when selected
+val TileColor = Color(0xFF1C1C21)
 
 /**
- * A soft, calm wallpaper drawn in code: a dark base with two big blurry glows.
- * Drawn, not a photo, so it costs almost no memory on the TV.
+ * The big picture behind the top of the screen. It shows the banner of the app
+ * you're on, stretched wide and faded into the dark background. Because banners
+ * are small images, stretching them makes a naturally soft, blurry backdrop.
+ * When nothing has a banner, a soft glow is drawn instead.
  */
 @Composable
-fun Wallpaper(hour: Int, modifier: Modifier = Modifier.fillMaxSize()) {
-    val (base, glow1, glow2) = palette(hour)
-    Canvas(modifier) {
-        drawRect(Brush.verticalGradient(listOf(base, Color(0xFF05060B))))
-        drawRect(
-            Brush.radialGradient(
-                listOf(glow1.copy(alpha = 0.45f), Color.Transparent),
-                center = Offset(size.width * 0.85f, size.height * 0.05f),
-                radius = size.width * 0.55f,
-            )
-        )
-        drawRect(
-            Brush.radialGradient(
-                listOf(glow2.copy(alpha = 0.30f), Color.Transparent),
-                center = Offset(size.width * 0.05f, size.height * 0.95f),
-                radius = size.width * 0.6f,
-            )
-        )
+fun Backdrop(banner: ImageBitmap?, modifier: Modifier = Modifier) {
+    Box(modifier.fillMaxSize().background(Background)) {
+        Crossfade(targetState = banner, animationSpec = tween(450), label = "backdrop") { image ->
+            Box(Modifier.fillMaxWidth().height(340.dp)) {
+                if (image != null) {
+                    Image(
+                        image, contentDescription = null, contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize().alpha(0.55f),
+                    )
+                } else {
+                    Canvas(Modifier.fillMaxSize()) {
+                        drawRect(
+                            Brush.radialGradient(
+                                listOf(Color(0x553A4A8A), Color.Transparent),
+                                center = Offset(size.width * 0.75f, 0f),
+                                radius = size.width * 0.7f,
+                            )
+                        )
+                    }
+                }
+                // Fade to dark at the bottom and on the left, so the text stays readable.
+                Canvas(Modifier.fillMaxSize()) {
+                    drawRect(Brush.verticalGradient(0.35f to Color.Transparent, 1f to Background))
+                    drawRect(Brush.horizontalGradient(0f to Background.copy(alpha = 0.85f), 0.6f to Color.Transparent))
+                }
+            }
+        }
     }
 }

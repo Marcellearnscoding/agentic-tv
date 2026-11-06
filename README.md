@@ -29,9 +29,9 @@ You never need Android Studio. GitHub does the building.
 The app files, from easiest to change to hardest:
 
 - `Favorites.kt`: which apps appear in the "Watch" row, and which are hidden
-- `Theme.kt`: colours and the wallpaper
+- `Theme.kt`: colours and the big backdrop behind the top of the screen
 - `HomeScreen.kt`: the layout (clock, cards, app tiles)
-- `GuestCard.kt`: the welcome card with the Wi-Fi QR code
+- `GuestCard.kt`: the Wi-Fi pop-up with the QR code
 - `AssistantPanel.kt`: the "Ask the TV" pop-up
 - `Assistant.kt`: talks to the brain and carries out what it says
 - `Apps.kt`: finds installed apps and opens them
