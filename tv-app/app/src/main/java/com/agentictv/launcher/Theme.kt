@@ -23,28 +23,25 @@ val FrostedFocused = Color(0xE6FFFFFF)  // almost solid white when selected
 val TileColor = Color(0xFF1C1C21)
 
 /**
- * The soft light behind the top of the screen. It glows in the colour of the
- * app you're on (red for Netflix, blue for Disney+...) and blends smoothly
- * from one colour to the next. It's just a drawn gradient, no pictures, so it
+ * The big soft light in the middle of the screen. It glows in the colour of
+ * the app you're on (red for Netflix, blue for Disney+...) and blends smoothly
+ * from one colour to the next. It's only a drawn gradient, no pictures, so it
  * costs almost no memory.
  */
 @Composable
 fun Backdrop(glow: Color?, modifier: Modifier = Modifier) {
-    val color by animateColorAsState(glow ?: Color(0xFF3A4A8A), tween(600), label = "glow")
+    val color by animateColorAsState(glow ?: Color(0xFF4A5AA0), tween(700), label = "glow")
     Canvas(modifier.fillMaxSize().background(Background)) {
         drawRect(
             Brush.radialGradient(
-                listOf(color.copy(alpha = 0.45f), color.copy(alpha = 0.12f), Color.Transparent),
-                center = Offset(size.width * 0.78f, -size.height * 0.1f),
-                radius = size.width * 0.75f,
+                0f to color.copy(alpha = 0.60f),
+                0.45f to color.copy(alpha = 0.18f),
+                1f to Color.Transparent,
+                center = Offset(size.width * 0.36f, size.height * 0.40f),
+                radius = size.width * 0.62f,
             )
         )
-        drawRect(
-            Brush.radialGradient(
-                listOf(color.copy(alpha = 0.18f), Color.Transparent),
-                center = Offset(size.width * 0.1f, 0f),
-                radius = size.width * 0.45f,
-            )
-        )
+        // Darker towards the bottom, so the tiles sit on a calm base.
+        drawRect(Brush.verticalGradient(0.55f to Color.Transparent, 1f to Background.copy(alpha = 0.7f)))
     }
 }
