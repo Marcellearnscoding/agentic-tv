@@ -2,3 +2,4 @@
 scripts/.tv-ip
 *.apk
 scripts/.disabled-launchers
+scripts/.disabled-bloat

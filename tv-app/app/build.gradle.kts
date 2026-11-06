@@ -12,8 +12,8 @@ android {
         applicationId = "com.agentictv.launcher"
         minSdk = 30 // Android 11, what the guest room TV runs
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
     }
 
     // One fixed key, so every new build installs over the old one on the TV.
@@ -29,6 +29,14 @@ android {
 
     buildTypes {
         getByName("debug") {
+            signingConfig = signingConfigs.getByName("debug")
+        }
+        // The version that goes on the TV. "Release" is much faster than "debug":
+        // R8 shrinks and optimizes the code, which matters a lot with ~1 GB of RAM.
+        getByName("release") {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.getByName("debug")
         }
     }
@@ -54,4 +62,5 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.9.3")
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
+    implementation("com.google.zxing:core:3.5.3") // makes the Wi-Fi QR code
 }

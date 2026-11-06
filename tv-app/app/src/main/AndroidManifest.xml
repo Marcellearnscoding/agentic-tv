@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Privacy: this app asks for NO permissions. No internet, no mic, no camera.
-         It only reads which apps are installed so it can show them. -->
+    <!-- Privacy: the only permission is internet, used just to talk to our own
+         assistant "brain" when you ask it something. No mic, camera or location
+         permission. (Voice typing is done by the TV's own speech screen.) -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <uses-feature android:name="android.software.leanback" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
@@ -16,6 +18,13 @@
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <!-- Lets us find the TV's voice typing screen and YouTube search. -->
+        <intent>
+            <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SEARCH" />
         </intent>
     </queries>
 
@@ -48,5 +57,16 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+
+        <!-- Receives settings from scripts/set-guest-info.sh and set-agent.sh.
+             Only adb (your allowed computer) holds the DUMP permission. -->
+        <receiver
+            android:name=".ConfigReceiver"
+            android:exported="true"
+            android:permission="android.permission.DUMP">
+            <intent-filter>
+                <action android:name="com.agentictv.SET_CONFIG" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>
