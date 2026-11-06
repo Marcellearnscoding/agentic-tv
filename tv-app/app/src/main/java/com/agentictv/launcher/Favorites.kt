@@ -14,7 +14,7 @@ val FAVORITE_PACKAGES = listOf(
     "com.apple.atve.androidtv.appletv",       // Apple TV
 )
 
-/** The TV's own "Live TV / HDMI inputs" app. Gets its own tile in the Watch row. */
+/** The TV's own "Live TV / HDMI inputs" app. Opened by the "Inputs" button. */
 const val LIVE_TV_PACKAGE = "com.mediatek.wwtv.tvcenter"
 
 /**
