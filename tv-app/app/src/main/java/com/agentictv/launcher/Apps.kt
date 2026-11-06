@@ -23,6 +23,8 @@ data class TvApp(
     val icon: ImageBitmap,
     /** A colour picked from the icon, used as the tile background for icon-only apps. */
     val color: Color,
+    /** The app's brightest, most colourful shade, for the glow behind the title. */
+    val glow: Color,
 )
 
 /**
@@ -57,18 +59,20 @@ private fun isWorthShowing(app: ApplicationInfo, pkg: String): Boolean {
 private fun ResolveInfo.toTvApp(pm: PackageManager): TvApp {
     val bannerDrawable = activityInfo.loadBanner(pm) ?: activityInfo.applicationInfo.loadBanner(pm)
     val iconBitmap = loadIcon(pm).toBitmap(96, 96)
+    val bannerBitmap = bannerDrawable?.let {
+        val w = it.intrinsicWidth.takeIf { w -> w > 0 } ?: 320
+        val h = it.intrinsicHeight.takeIf { h -> h > 0 } ?: 180
+        val scale = 240f / maxOf(w, h)
+        it.toBitmap((w * scale).toInt().coerceAtLeast(1), (h * scale).toInt().coerceAtLeast(1))
+    }
     return TvApp(
         packageName = activityInfo.packageName,
         label = loadLabel(pm).toString(),
         // Keep the banner's own shape; the tile crops it to 16:9 without stretching.
-        banner = bannerDrawable?.let {
-            val w = it.intrinsicWidth.takeIf { w -> w > 0 } ?: 320
-            val h = it.intrinsicHeight.takeIf { h -> h > 0 } ?: 180
-            val scale = 240f / maxOf(w, h)
-            it.toBitmap((w * scale).toInt().coerceAtLeast(1), (h * scale).toInt().coerceAtLeast(1)).asImageBitmap()
-        },
+        banner = bannerBitmap?.asImageBitmap(),
         icon = iconBitmap.asImageBitmap(),
         color = averageColor(iconBitmap),
+        glow = vividColor(bannerBitmap ?: iconBitmap),
     )
 }
 
@@ -85,6 +89,24 @@ private fun averageColor(bitmap: Bitmap): Color {
     if (n == 0f) return Color(0xFF2A3050)
     val k = 0.55f / 255f // darken
     return Color(r / n * k, g / n * k, b / n * k)
+}
+
+/**
+ * The most colourful shade in the picture (Netflix red, Disney blue...).
+ * Looks at an 8x8 shrunk copy and picks the pixel that is both bright and saturated.
+ */
+private fun vividColor(bitmap: Bitmap): Color {
+    val small = Bitmap.createScaledBitmap(bitmap, 8, 8, true)
+    var best = Color(0xFF3A4A8A); var bestScore = 0.15f
+    val hsv = FloatArray(3)
+    for (x in 0 until 8) for (y in 0 until 8) {
+        val p = small.getPixel(x, y)
+        if ((p ushr 24) < 128) continue
+        android.graphics.Color.colorToHSV(p, hsv)
+        val score = hsv[1] * hsv[2]
+        if (score > bestScore) { bestScore = score; best = Color(p).copy(alpha = 1f) }
+    }
+    return best
 }
 
 /** Opens an app. Returns false if it couldn't be opened. */
