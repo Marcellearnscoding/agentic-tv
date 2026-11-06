@@ -23,6 +23,7 @@ class MainActivity : ComponentActivity() {
     private val guest = mutableStateOf<GuestInfo?>(null)
     private val assistant = mutableStateOf<AssistantState>(AssistantState.Hidden)
     private val focusKey = mutableStateOf(0)
+    private val showWifi = mutableStateOf(false)
     private var agent: AgentConfig? = null
     private var askJob: Job? = null
 
@@ -39,7 +40,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             BackHandler {
                 // Back closes the assistant. On the home screen itself, Back does nothing.
-                if (assistant.value != AssistantState.Hidden) closeAssistant()
+                if (showWifi.value) showWifi.value = false
+                else if (assistant.value != AssistantState.Hidden) closeAssistant()
             }
             Box {
                 HomeScreen(
@@ -50,7 +52,9 @@ class MainActivity : ComponentActivity() {
                     onOpenSettings = { openSettings(this@MainActivity) },
                     onOpenLiveTv = { launchApp(this@MainActivity, LIVE_TV_PACKAGE) },
                     onOpenAssistant = { openAssistant() },
+                    onOpenWifi = { showWifi.value = true },
                 )
+                if (showWifi.value) GuestPanel(guest.value) { showWifi.value = false }
                 AssistantPanel(
                     state = assistant.value,
                     onSpeak = { startVoice() },
@@ -77,6 +81,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         closeAssistant()
+        showWifi.value = false
         focusKey.value++
     }
 

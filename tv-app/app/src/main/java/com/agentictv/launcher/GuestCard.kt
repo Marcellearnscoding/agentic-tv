@@ -2,6 +2,14 @@ package com.agentictv.launcher
 
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -42,7 +50,7 @@ fun GuestCard(info: GuestInfo?, modifier: Modifier = Modifier) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (qr != null) {
-            Image(qr, contentDescription = "Wi-Fi QR code", modifier = Modifier.size(84.dp).clip(RoundedCornerShape(8.dp)))
+            Image(qr, contentDescription = "Wi-Fi QR code", modifier = Modifier.size(120.dp).clip(RoundedCornerShape(8.dp)))
             Spacer(Modifier.width(14.dp))
         }
         Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -62,10 +70,32 @@ fun GuestCard(info: GuestInfo?, modifier: Modifier = Modifier) {
     }
 }
 
+/** Full-screen pop-up with the guest card. Back or OK closes it. */
+@Composable
+fun GuestPanel(info: GuestInfo?, onClose: () -> Unit) {
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+    Box(
+        Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color(0xCC000000))
+            .focusRequester(focus)
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClose),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            GuestCard(info, Modifier.width(520.dp))
+            Spacer(Modifier.height(16.dp))
+            Text(
+                if (info?.wifiName.isNullOrBlank()) "Ask your host for the Wi-Fi details." else "Press OK or Back to close",
+                color = TextDim, fontSize = 12.sp,
+            )
+        }
+    }
+}
+
 /** A see-through rounded card, used for the top cards. */
 fun Modifier.glassCard(): Modifier = this
     .clip(RoundedCornerShape(16.dp))
-    .background(CardColor)
+    .background(Frosted)
 
 /** Builds the standard "join this Wi-Fi" QR code that phone cameras understand. */
 private fun wifiQr(name: String, password: String): ImageBitmap {
