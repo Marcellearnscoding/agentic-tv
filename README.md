@@ -92,3 +92,4 @@ After any change is merged to `main`, wait for the green tick on GitHub, then ru
 3. ✅ AI assistant: ask for something in plain words, the TV does it
 4. ✅ People: name chips, own app order, Ask remembers what each person likes
 5. Tap an NFC tag with your phone to use it as a remote
+6. A wallpaper for each person, and our own screensaver
