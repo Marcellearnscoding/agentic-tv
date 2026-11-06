@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -99,7 +100,7 @@ fun HomeScreen(
         Column(Modifier.fillMaxSize().padding(top = 24.dp)) {
             TopBar(now, guest, onOpenAssistant)
             Spacer(Modifier.height(14.dp))
-            AppRows(favorites, others, firstTile, onOpenApp, onOpenSettings, onOpenLiveTv)
+            AppRows(favorites, others, firstTile, focusKey, onOpenApp, onOpenSettings, onOpenLiveTv)
         }
     }
 }
@@ -171,16 +172,20 @@ private fun AppRows(
     favorites: List<TvApp>,
     others: List<TvApp>,
     firstTile: FocusRequester,
+    focusKey: Int,
     onOpenApp: (TvApp) -> Unit,
     onOpenSettings: () -> Unit,
     onOpenLiveTv: () -> Unit,
 ) {
+    // Jump back to the top whenever you return to the home screen.
+    val listState = rememberLazyListState()
+    LaunchedEffect(focusKey) { listState.scrollToItem(0) }
     // Rows of exactly 5, so moving up and down lands in the same column.
     val otherRows = others.chunked(TilesPerRow)
     val defaultSpec = LocalBringIntoViewSpec.current
 
     CompositionLocalProvider(LocalBringIntoViewSpec provides ComfortableScroll) {
-        LazyColumn(Modifier.fillMaxSize().fadeTopEdge(), contentPadding = PaddingValues(top = 4.dp, bottom = 24.dp)) {
+        LazyColumn(Modifier.fillMaxSize().fadeTopEdge(), state = listState, contentPadding = PaddingValues(top = 4.dp, bottom = 24.dp)) {
             item {
                 Section("Watch") {
                     CompositionLocalProvider(LocalBringIntoViewSpec provides defaultSpec) {

@@ -73,6 +73,13 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** Pressing Home while already on the home screen: close pop-ups, go back to the top. */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        closeAssistant()
+        focusKey.value++
+    }
+
     /** The search / mic key on the remote opens the assistant straight away. */
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == KeyEvent.KEYCODE_SEARCH || keyCode == KeyEvent.KEYCODE_VOICE_ASSIST) {
