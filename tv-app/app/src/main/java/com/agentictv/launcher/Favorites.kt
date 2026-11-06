@@ -11,6 +11,7 @@ val FAVORITE_PACKAGES = listOf(
     "com.netflix.ninja",                      // Netflix
     "com.disney.disneyplus",                  // Disney+
     "com.amazon.amazonvideo.livingroom",      // Prime Video
+    "com.apple.atve.androidtv.appletv",       // Apple TV
 )
 
 /** The TV's own "Live TV / HDMI inputs" app. Gets its own tile in the Watch row. */
