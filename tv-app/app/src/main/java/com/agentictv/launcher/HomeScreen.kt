@@ -1,6 +1,8 @@
 package com.agentictv.launcher
 
+import android.text.format.DateFormat
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -11,6 +13,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.BringIntoViewSpec
 import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
@@ -29,7 +32,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -48,12 +50,11 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -65,25 +66,28 @@ import java.time.format.DateTimeFormatter
  * Screen layout. The TV is 1280x720, which Android treats as about 960 x 540 "dp".
  *
  *   ┌──────────────────────────────────────────────────────┐
- *   │ (✦ Ask the TV) (Wi-Fi)                         14:39 │  top bar
- *   │                                                      │
- *   │ NETFLIX                                              │  hero: the app you're on,
- *   │ Press OK to open                                     │  with its picture behind
- *   │ [tile][tile][tile][tile][tile]                       │  Watch row
- *   │ [tile][tile][tile][tile][tile]                       │  All apps (scrolls)
+ *   │ GOOD AFTERNOON           (Ask)(Inputs)(Wi-Fi)(Settings)
+ *   │ 13:55 | FRIDAY 6 NOVEMBER                            │
+ *   │                  ( coloured glow )                   │
+ *   │ Netflix                       ← the app you're on    │
+ *   │ ╭────────────────────────────────────────────────╮   │
+ *   │ │ [tile]   [tile]   [tile]   [tile]              │   │  the row you're on
+ *   │ ╰────────────────────────────────────────────────╯   │
+ *   │  [tile]   [tile]   [tile]   [tile]                   │  next row peeks in
  *   └──────────────────────────────────────────────────────┘
  *
- * 40dp side margins (TVs can cut off the edges); tiles are 160 x 90 (16:9),
- * 5 per row with 16dp gaps.
+ * 48dp side margins (TVs can cut off the edges). Tiles are 192 x 108 (16:9),
+ * 4 per row.
  */
-private val SidePadding = 40.dp
-private val TileWidth = 160.dp
-private val TileHeight = 90.dp
-private val TileGap = 16.dp
-private const val TilesPerRow = 5
+private val SidePadding = 48.dp
+private val TileWidth = 192.dp
+private val TileHeight = 108.dp
+private val TileGap = 18.dp
+private val TrayPadding = 14.dp
+private const val TilesPerRow = 4
 
-/** What the big area at the top shows: the thing you're on right now. */
-data class Hero(val title: String, val subtitle: String, val glow: Color? = null)
+/** The big title above the tiles: the thing you're on right now, and its colour. */
+data class Hero(val title: String, val subtitle: String = "", val glow: Color? = null)
 
 @Composable
 fun HomeScreen(
@@ -97,24 +101,12 @@ fun HomeScreen(
     onOpenAssistant: () -> Unit,
     onOpenWifi: () -> Unit,
 ) {
-    var now by remember { mutableStateOf(LocalDateTime.now()) }
-    LaunchedEffect(Unit) {
-        while (true) { now = LocalDateTime.now(); delay(1_000) }
-    }
-    val greeting = when (now.hour) {
-        in 5..11 -> "Good morning"
-        in 12..17 -> "Good afternoon"
-        else -> "Good evening"
-    }
-    val welcomeHero = Hero(greeting, guest?.welcome ?: "Welcome! Pick something to watch.")
-    var hero by remember { mutableStateOf<Hero?>(null) }
-    // Each time you come back home, show the welcome first. The automatic jump to
-    // the first tile shouldn't replace it; moving with the remote does.
-    var keepWelcome by remember { mutableStateOf(true) }
-    LaunchedEffect(focusKey) { hero = null; keepWelcome = true }
+    var hero by remember { mutableStateOf(Hero("")) }
 
     val favorites = FAVORITE_PACKAGES.mapNotNull { pkg -> apps.firstOrNull { it.packageName == pkg } }
     val others = apps.filter { it !in favorites }
+    val rows = (favorites.chunked(TilesPerRow) + others.chunked(TilesPerRow)).filter { it.isNotEmpty() }
+
     val firstTile = remember { FocusRequester() }
     LaunchedEffect(focusKey, apps.isNotEmpty()) {
         if (apps.isNotEmpty()) {
@@ -123,224 +115,220 @@ fun HomeScreen(
         }
     }
 
-    val shown = hero ?: welcomeHero
     Box(Modifier.fillMaxSize()) {
-        Backdrop(shown.glow)
-        Column(Modifier.fillMaxSize().padding(top = 22.dp)) {
-            TopBar(now, onOpenAssistant, onOpenWifi, onFocused = { hero = it })
-            HeroText(shown, Modifier.padding(horizontal = SidePadding).height(132.dp))
-            AppRows(
-                favorites, others, firstTile, focusKey,
-                onOpenApp, onOpenSettings, onOpenLiveTv,
-                onFocused = { if (keepWelcome) keepWelcome = false else hero = it },
+        Backdrop(hero.glow)
+        Column(Modifier.fillMaxSize().padding(top = 30.dp)) {
+            Header(
+                guest = guest,
+                onFocused = { hero = it },
+                onOpenAssistant = onOpenAssistant,
+                onOpenLiveTv = onOpenLiveTv,
+                onOpenWifi = onOpenWifi,
+                onOpenSettings = onOpenSettings,
             )
+            Spacer(Modifier.weight(1f))
+            Title(hero)
+            AppRows(rows, firstTile, focusKey, onOpenApp, onFocused = { hero = it })
         }
     }
 }
 
-/** Small frosted buttons on the left, a thin clock on the right. */
+/** Greeting, clock and date on the left; small frosted buttons on the right. */
 @Composable
-private fun TopBar(
-    now: LocalDateTime,
-    onOpenAssistant: () -> Unit,
-    onOpenWifi: () -> Unit,
+private fun Header(
+    guest: GuestInfo?,
     onFocused: (Hero) -> Unit,
+    onOpenAssistant: () -> Unit,
+    onOpenLiveTv: () -> Unit,
+    onOpenWifi: () -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth().height(40.dp).padding(horizontal = SidePadding),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Pill("✦  Ask the TV", onOpenAssistant) {
-            onFocused(Hero("Ask the TV", "Say or type what you'd like, like “put on something funny”."))
-        }
-        Pill("Wi-Fi", onOpenWifi) {
-            onFocused(Hero("Guest Wi-Fi", "Show the Wi-Fi details and a code to scan with your phone."))
+    var now by remember { mutableStateOf(LocalDateTime.now()) }
+    LaunchedEffect(Unit) {
+        while (true) { now = LocalDateTime.now(); delay(1_000) }
+    }
+    val is24h = DateFormat.is24HourFormat(LocalContext.current)
+    val greeting = guest?.welcome?.takeIf { it.isNotBlank() } ?: when (now.hour) {
+        in 5..11 -> "Good morning"
+        in 12..17 -> "Good afternoon"
+        else -> "Good evening"
+    }
+
+    Row(Modifier.fillMaxWidth().padding(horizontal = SidePadding), verticalAlignment = Alignment.Top) {
+        Column {
+            Caps(greeting)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    now.format(DateTimeFormatter.ofPattern(if (is24h) "HH:mm" else "h:mm")),
+                    color = TextMain, fontSize = 46.sp, fontWeight = FontWeight.Light,
+                )
+                if (!is24h) {
+                    Text(
+                        if (now.hour < 12) " AM" else " PM",
+                        color = TextMain, fontSize = 16.sp, fontWeight = FontWeight.Light,
+                    )
+                }
+                Box(Modifier.padding(horizontal = 16.dp).width(1.dp).height(26.dp).background(TextDim.copy(alpha = 0.5f)))
+                Caps(now.format(DateTimeFormatter.ofPattern("EEEE  d MMMM")))
+            }
         }
         Spacer(Modifier.weight(1f))
-        Text(now.format(DateTimeFormatter.ofPattern("HH:mm")), color = TextMain, fontSize = 22.sp, fontWeight = FontWeight.Light)
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 4.dp)) {
+            Pill("✦  Ask", onOpenAssistant) { onFocused(Hero("Ask the TV", "Say or type what you'd like, like “put on something funny”.")) }
+            Pill("Inputs", onOpenLiveTv) { onFocused(Hero("TV & HDMI", "Live TV and the HDMI inputs.")) }
+            Pill("Wi-Fi", onOpenWifi) { onFocused(Hero("Guest Wi-Fi", "Show the Wi-Fi details and a code to scan with your phone.")) }
+            Pill("Settings", onOpenSettings) { onFocused(Hero("Settings", "The TV's own settings.")) }
+        }
     }
 }
 
-/** A rounded frosted button. Turns white when the remote is on it. */
+/** Small, spaced-out capital letters, for the greeting and the date. */
 @Composable
-private fun Pill(label: String, onClick: () -> Unit, onFocus: (Boolean) -> Unit) {
+private fun Caps(text: String) {
+    Text(
+        text.uppercase(), color = TextMain.copy(alpha = 0.85f), fontSize = 12.sp,
+        fontWeight = FontWeight.Medium, letterSpacing = 2.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+    )
+}
+
+/** A rounded frosted button with a thin edge. Turns white when the remote is on it. */
+@Composable
+private fun Pill(label: String, onClick: () -> Unit, onFocus: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
-    LaunchedEffect(focused) { if (focused) onFocus(true) }
+    LaunchedEffect(focused) { if (focused) onFocus() }
     val scale by animateFloatAsState(if (focused) 1.08f else 1f, spring(stiffness = 600f), label = "pill")
+    val shape = RoundedCornerShape(50)
     Box(
         modifier = Modifier
             .graphicsLayer { scaleX = scale; scaleY = scale }
-            .clip(RoundedCornerShape(50))
+            .clip(shape)
             .background(if (focused) FrostedFocused else Frosted)
+            .border(1.dp, Color.White.copy(alpha = if (focused) 0f else 0.18f), shape)
             .clickable(interactionSource = interaction, indication = null, onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 7.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
         Text(label, color = if (focused) Background else TextMain, fontSize = 13.sp, fontWeight = FontWeight.Medium)
     }
 }
 
-/** Big title and a line under it, for whatever you're on. Fades when it changes. */
+/** The name of whatever you're on, big, just above the tiles. Fades when it changes. */
 @Composable
-private fun HeroText(hero: Hero, modifier: Modifier = Modifier) {
-    Box(modifier.fillMaxWidth(), contentAlignment = Alignment.BottomStart) {
-        AnimatedContent(
-            targetState = hero,
-            transitionSpec = { fadeIn(tween(300)) togetherWith fadeOut(tween(200)) },
-            label = "hero",
-        ) { h ->
-            Column(Modifier.width(560.dp).padding(bottom = 10.dp)) {
-                Text(
-                    h.title, color = TextMain, fontSize = 34.sp, fontWeight = FontWeight.SemiBold,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis,
-                )
-                Text(h.subtitle, color = TextDim, fontSize = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+private fun Title(hero: Hero) {
+    AnimatedContent(
+        targetState = hero,
+        transitionSpec = { fadeIn(tween(250)) togetherWith fadeOut(tween(150)) },
+        label = "title",
+        modifier = Modifier.padding(horizontal = SidePadding).height(76.dp),
+    ) { h ->
+        Column(Modifier.width(620.dp).height(76.dp), verticalArrangement = Arrangement.Bottom) {
+            Text(
+                h.title, color = TextMain, fontSize = 40.sp, fontWeight = FontWeight.Medium,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+            if (h.subtitle.isNotEmpty()) {
+                Text(h.subtitle, color = TextDim, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }
 }
 
 /**
- * Scrolls the app rows so the row you're on always sits at the top of the list,
- * like on Apple TV. Rows above it slide fully out of sight instead of peeking
- * out from under the title.
+ * Scrolls so the row you're on always sits in the same place, like on Apple TV.
+ * Rows above it slide out of sight; the next row peeks in below.
  */
 @OptIn(ExperimentalFoundationApi::class)
-private val ComfortableScroll = object : BringIntoViewSpec {
-    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float {
-        val top = containerSize * 0.05f // a little room so the lifted tile isn't cut off
-        return offset - top
-    }
+private val PinToTop = object : BringIntoViewSpec {
+    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float =
+        offset - containerSize * 0.10f
 }
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun AppRows(
-    favorites: List<TvApp>,
-    others: List<TvApp>,
+    rows: List<List<TvApp>>,
     firstTile: FocusRequester,
     focusKey: Int,
     onOpenApp: (TvApp) -> Unit,
-    onOpenSettings: () -> Unit,
-    onOpenLiveTv: () -> Unit,
     onFocused: (Hero) -> Unit,
 ) {
     // Jump back to the top whenever you return to the home screen.
     val listState = rememberLazyListState()
     LaunchedEffect(focusKey) { listState.scrollToItem(0) }
 
-    // Rows of exactly 5, so moving up and down lands in the same column.
-    val otherRows = others.chunked(TilesPerRow)
-    val defaultSpec = LocalBringIntoViewSpec.current
-    val liveTv = Shortcut("TV & HDMI", "📺", "Live TV and the HDMI inputs.", onOpenLiveTv)
-    val settings = Shortcut("Settings", "⚙", "The TV's own settings.", onOpenSettings)
-
-    CompositionLocalProvider(LocalBringIntoViewSpec provides ComfortableScroll) {
+    CompositionLocalProvider(LocalBringIntoViewSpec provides PinToTop) {
         LazyColumn(
-            Modifier.fillMaxSize(),
+            Modifier.fillMaxWidth().height(206.dp),
             state = listState,
-            // The big bottom gap lets even the last row scroll up to the top,
-            // so its name label never gets cut off by the screen edge.
-            contentPadding = PaddingValues(top = 4.dp, bottom = 240.dp),
+            // Space at the bottom lets even the last row scroll up into place.
+            contentPadding = PaddingValues(top = 6.dp, bottom = 120.dp),
         ) {
-            item {
-                CompositionLocalProvider(LocalBringIntoViewSpec provides defaultSpec) {
-                    AppRow(favorites, onOpenApp, onFocused, firstTile, listOf(liveTv))
-                }
-            }
-            items(otherRows.size) { index ->
-                Column {
-                    if (index == 0) SectionTitle("All apps")
-                    CompositionLocalProvider(LocalBringIntoViewSpec provides defaultSpec) {
-                        val isLast = index == otherRows.lastIndex
-                        AppRow(otherRows[index], onOpenApp, onFocused, null, if (isLast) listOf(settings) else emptyList())
-                    }
-                }
-            }
-            if (otherRows.isEmpty()) {
-                item { AppRow(emptyList(), onOpenApp, onFocused, null, listOf(settings)) }
+            items(rows.size) { index ->
+                AppRow(rows[index], onOpenApp, onFocused, if (index == 0) firstTile else null)
             }
         }
     }
 }
 
-/** A tile that isn't an app, like "TV & HDMI" or "Settings". */
-private data class Shortcut(val label: String, val symbol: String, val about: String, val onClick: () -> Unit)
-
-@Composable
-private fun SectionTitle(title: String) {
-    Text(
-        title, color = TextDim, fontSize = 13.sp, fontWeight = FontWeight.Medium,
-        modifier = Modifier.padding(start = SidePadding, top = 4.dp),
-    )
-}
-
+/** One row of up to 4 tiles. The row you're on sits on a frosted strip. */
 @Composable
 private fun AppRow(
     apps: List<TvApp>,
     onOpenApp: (TvApp) -> Unit,
     onFocused: (Hero) -> Unit,
     firstTile: FocusRequester?,
-    extras: List<Shortcut>,
 ) {
-    LazyRow(
+    var active by remember { mutableStateOf(false) }
+    val tray by animateColorAsState(if (active) Color.White.copy(alpha = 0.07f) else Color.Transparent, tween(250), label = "tray")
+    val edge by animateColorAsState(if (active) Color.White.copy(alpha = 0.10f) else Color.Transparent, tween(250), label = "edge")
+    val shape = RoundedCornerShape(24.dp)
+    Row(
         horizontalArrangement = Arrangement.spacedBy(TileGap),
-        // Room around the tiles so the "lift" and its shadow aren't cut off.
-        contentPadding = PaddingValues(horizontal = SidePadding, vertical = 12.dp),
+        modifier = Modifier
+            .padding(horizontal = SidePadding - TrayPadding, vertical = 4.dp)
+            .onFocusChanged { active = it.hasFocus }
+            .background(tray, shape)
+            .border(1.dp, edge, shape)
+            .padding(TrayPadding),
     ) {
-        items(apps.size) { index ->
-            val app = apps[index]
+        apps.forEachIndexed { index, app ->
             Tile(
-                label = app.label,
                 onClick = { onOpenApp(app) },
-                onFocus = { onFocused(Hero(app.label, "Press OK to open", app.glow)) },
+                onFocus = { onFocused(Hero(app.label, glow = app.glow)) },
                 modifier = if (index == 0 && firstTile != null) Modifier.focusRequester(firstTile) else Modifier,
             ) {
                 if (app.banner != null) {
                     Image(app.banner, app.label, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                 } else {
-                    IconTileContent(app.label, app.color) { Image(app.icon, null, modifier = Modifier.size(36.dp)) }
+                    IconTileContent(app)
                 }
-            }
-        }
-        items(extras.size) { index ->
-            val shortcut = extras[index]
-            Tile(
-                label = shortcut.label,
-                onClick = shortcut.onClick,
-                onFocus = { onFocused(Hero(shortcut.label, shortcut.about)) },
-                modifier = if (apps.isEmpty() && index == 0 && firstTile != null) Modifier.focusRequester(firstTile) else Modifier,
-            ) {
-                IconTileContent(shortcut.label, Color(0xFF2A2A31)) { Text(shortcut.symbol, fontSize = 28.sp) }
             }
         }
     }
 }
 
-/** For apps without a TV banner: coloured tile with the icon and the name. */
+/** For apps without a TV banner: their icon and name on a tile in their own colour. */
 @Composable
-private fun IconTileContent(label: String, color: Color, icon: @Composable () -> Unit) {
+private fun IconTileContent(app: TvApp) {
     Row(
-        modifier = Modifier.fillMaxSize().background(color).padding(12.dp),
+        modifier = Modifier.fillMaxSize().background(app.color).padding(14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        icon()
-        Spacer(Modifier.width(10.dp))
+        Image(app.icon, null, modifier = Modifier.size(40.dp))
+        Spacer(Modifier.width(12.dp))
         Text(
-            label, color = TextMain, fontSize = 13.sp, fontWeight = FontWeight.Medium,
+            app.label, color = TextMain, fontSize = 15.sp, fontWeight = FontWeight.Medium,
             maxLines = 2, overflow = TextOverflow.Ellipsis,
         )
     }
 }
 
 /**
- * One 16:9 tile. When the remote is on it, it lifts towards you: it grows,
- * casts a soft shadow and gets a glossy shine. No coloured outline.
+ * One 16:9 tile. When the remote is on it, it grows a little, gets a crisp
+ * white edge and a soft shadow.
  */
 @Composable
 private fun Tile(
-    label: String,
     onClick: () -> Unit,
     onFocus: () -> Unit,
     modifier: Modifier = Modifier,
@@ -348,37 +336,22 @@ private fun Tile(
 ) {
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
-    val scale by animateFloatAsState(if (focused) 1.12f else 1f, spring(dampingRatio = 0.7f, stiffness = 500f), label = "lift")
-    val elevation by animateDpAsState(if (focused) 18.dp else 0.dp, tween(200), label = "shadow")
-    val shape = RoundedCornerShape(12.dp)
+    val scale by animateFloatAsState(if (focused) 1.07f else 1f, spring(dampingRatio = 0.75f, stiffness = 500f), label = "lift")
+    val elevation by animateDpAsState(if (focused) 16.dp else 0.dp, tween(200), label = "shadow")
+    val shape = RoundedCornerShape(14.dp)
 
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(TileWidth)) {
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = modifier
-                .onFocusChanged { if (it.isFocused) onFocus() }
-                .graphicsLayer { scaleX = scale; scaleY = scale }
-                .shadow(elevation, shape, ambientColor = Color.Black, spotColor = Color.Black)
-                .size(TileWidth, TileHeight)
-                .clip(shape)
-                .background(TileColor)
-                .clickable(interactionSource = interaction, indication = null, onClick = onClick),
-        ) {
-            content()
-            if (focused) {
-                // The glossy shine across the top-left of the lifted tile.
-                Box(
-                    Modifier.fillMaxSize().background(
-                        Brush.linearGradient(listOf(Color.White.copy(alpha = 0.22f), Color.Transparent))
-                    )
-                )
-            }
-        }
-        Text(
-            if (focused) label else "",
-            color = TextMain, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth().padding(top = 12.dp).height(16.dp),
-        )
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier
+            .onFocusChanged { if (it.isFocused) onFocus() }
+            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .shadow(elevation, shape, ambientColor = Color.Black, spotColor = Color.Black)
+            .size(TileWidth, TileHeight)
+            .clip(shape)
+            .background(TileColor)
+            .clickable(interactionSource = interaction, indication = null, onClick = onClick),
+    ) {
+        content()
+        if (focused) Box(Modifier.fillMaxSize().border(3.dp, Color.White, shape))
     }
 }
