@@ -85,6 +85,15 @@ After any change is merged to `main`, wait for the green tick on GitHub, then ru
 - `tv-app/app/debug.keystore` is the standard Android "debug" signing key. It isn't
   a secret; it just makes sure each new build installs over the old one.
 
+## Weather
+
+The current weather sits next to the date; select it for the forecast (next hours
+and days). It comes from Open-Meteo (free, no account, no tracking). Set your town once:
+
+    scripts/set-weather.sh "Berlin"
+
+Only the town's name and rough coordinates are saved, on the TV only (not in GitHub).
+
 ## Phone remote and NFC tag
 
 The TV serves a tiny web page on your Wi-Fi. Press **Phone** on the home screen and
