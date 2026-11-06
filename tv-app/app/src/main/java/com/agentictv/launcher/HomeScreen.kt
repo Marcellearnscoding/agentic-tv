@@ -102,6 +102,7 @@ fun HomeScreen(
     onOpenLiveTv: () -> Unit,
     onOpenAssistant: () -> Unit,
     onOpenWifi: () -> Unit,
+    onOpenPhone: () -> Unit,
     /** A name chip was pressed: switch to that person (or, if it's already them, show their details). */
     onPersonChip: (String) -> Unit,
     onAddPerson: () -> Unit,
@@ -134,6 +135,7 @@ fun HomeScreen(
                 onOpenAssistant = onOpenAssistant,
                 onOpenLiveTv = onOpenLiveTv,
                 onOpenWifi = onOpenWifi,
+                onOpenPhone = onOpenPhone,
                 onOpenSettings = onOpenSettings,
             )
             Spacer(Modifier.weight(1f))
@@ -154,6 +156,7 @@ private fun Header(
     onOpenAssistant: () -> Unit,
     onOpenLiveTv: () -> Unit,
     onOpenWifi: () -> Unit,
+    onOpenPhone: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
     var now by remember { mutableStateOf(LocalDateTime.now()) }
@@ -190,6 +193,7 @@ private fun Header(
             Spacer(Modifier.weight(1f))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Pill("✦  Ask", onOpenAssistant) { onFocused(Hero("Ask the TV", "Say or type what you'd like, like “put on something funny”.")) }
+                Pill("Phone", onOpenPhone) { onFocused(Hero("Phone remote", "Scan the code to talk to the TV from your phone.")) }
                 Pill("Inputs", onOpenLiveTv) { onFocused(Hero("TV & HDMI", "Live TV and the HDMI inputs.")) }
                 Pill("Wi-Fi", onOpenWifi) { onFocused(Hero("Guest Wi-Fi", "Show the Wi-Fi details and a code to scan with your phone.")) }
                 Pill("Settings", onOpenSettings) { onFocused(Hero("Settings", "The TV's own settings.")) }
@@ -222,7 +226,6 @@ private fun Header(
 private fun Chip(label: String, active: Boolean, onClick: () -> Unit, onFocus: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
-    LaunchedEffect(focused) { if (focused) onFocus() }
     val scale by animateFloatAsState(if (focused) 1.08f else 1f, spring(stiffness = 600f), label = "chip")
     val shape = RoundedCornerShape(50)
     Box(
@@ -236,6 +239,7 @@ private fun Chip(label: String, active: Boolean, onClick: () -> Unit, onFocus: (
                     else -> Color.Transparent
                 }
             )
+            .onFocusChanged { if (it.isFocused) onFocus() }
             .clickable(interactionSource = interaction, indication = null, onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 6.dp),
     ) {
@@ -265,7 +269,6 @@ private fun Caps(text: String) {
 private fun Pill(label: String, onClick: () -> Unit, onFocus: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
-    LaunchedEffect(focused) { if (focused) onFocus() }
     val scale by animateFloatAsState(if (focused) 1.08f else 1f, spring(stiffness = 600f), label = "pill")
     val shape = RoundedCornerShape(50)
     Box(
@@ -274,6 +277,7 @@ private fun Pill(label: String, onClick: () -> Unit, onFocus: () -> Unit) {
             .clip(shape)
             .background(if (focused) FrostedFocused else Frosted)
             .border(1.dp, Color.White.copy(alpha = if (focused) 0f else 0.18f), shape)
+            .onFocusChanged { if (it.isFocused) onFocus() }
             .clickable(interactionSource = interaction, indication = null, onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {

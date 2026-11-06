@@ -92,6 +92,39 @@ fun GuestPanel(info: GuestInfo?, onClose: () -> Unit) {
     }
 }
 
+/** Pop-up with the QR code that opens the phone remote. Back or OK closes it. */
+@Composable
+fun PhonePanel(link: String?, onClose: () -> Unit) {
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+    val qr = remember(link) { link?.let { qrCode(it) } }
+    Box(
+        Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color(0xCC000000))
+            .focusRequester(focus)
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClose),
+        contentAlignment = Alignment.Center,
+    ) {
+        Row(
+            Modifier.width(560.dp).glassCard().padding(24.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(24.dp),
+        ) {
+            if (qr != null) {
+                Image(qr, "QR code for the phone remote", Modifier.size(150.dp).clip(RoundedCornerShape(10.dp)))
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Talk to the TV from your phone", color = TextMain, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+                Text(
+                    if (link == null) "The TV isn't on Wi-Fi right now."
+                    else "Scan with your phone camera (same Wi-Fi as the TV). Then tap the box and use the 🎤 on your keyboard.",
+                    color = TextDim, fontSize = 14.sp,
+                )
+                if (link != null) Text(link, color = TextDim, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+    }
+}
+
 /** A see-through rounded card, used for the top cards. */
 fun Modifier.glassCard(): Modifier = this
     .clip(RoundedCornerShape(16.dp))
@@ -102,7 +135,11 @@ private fun wifiQr(name: String, password: String): ImageBitmap {
     fun esc(s: String) = s.replace("""([\;,:"])""".toRegex(), """\\$1""")
     val text = if (password.isBlank()) "WIFI:T:nopass;S:${esc(name)};;"
     else "WIFI:T:WPA;S:${esc(name)};P:${esc(password)};;"
+    return qrCode(text)
+}
 
+/** Turns any text (a link, Wi-Fi details...) into a QR code picture. */
+fun qrCode(text: String): ImageBitmap {
     val size = 168
     val matrix = QRCodeWriter().encode(text, BarcodeFormat.QR_CODE, size, size, mapOf(EncodeHintType.MARGIN to 1))
     val pixels = IntArray(size * size) { i ->
