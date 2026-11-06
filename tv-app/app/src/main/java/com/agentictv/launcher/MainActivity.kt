@@ -2,6 +2,7 @@ package com.agentictv.launcher
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.speech.RecognizerIntent
 import android.view.KeyEvent
 import androidx.activity.ComponentActivity
@@ -11,6 +12,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -155,7 +157,12 @@ class MainActivity : ComponentActivity() {
         assistant.value = AssistantState.Thinking(question)
         askJob?.cancel()
         askJob = lifecycleScope.launch {
-            val answer = runCatching { askAgent(config, question, apps.value, profiles.value.current) }.getOrElse {
+            val answer = try {
+                askAgent(config, question, apps.value, profiles.value.current)
+            } catch (e: CancellationException) {
+                throw e // asked again or closed the panel: stay quiet
+            } catch (e: Exception) {
+                Log.w("AgenticTV", "Assistant request failed", e)
                 AgentAnswer("Sorry, I couldn't reach the assistant. Is the TV online?", emptyList())
             }
             val opensSomething = answer.actions.any { it.optString("type") in setOf("open_app", "search_youtube", "open_settings") }
