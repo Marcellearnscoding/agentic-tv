@@ -98,7 +98,7 @@ private fun Double.roundToInt() = Math.round(this).toInt()
 fun weatherLook(code: Int, isDay: Boolean = true): Pair<String, String> = when (code) {
     0 -> (if (isDay) "☀️" else "🌙") to "Clear"
     1 -> (if (isDay) "🌤️" else "🌙") to "Mostly clear"
-    2 -> "⛅" to "Partly cloudy"
+    2 -> (if (isDay) "⛅" else "☁️") to "Partly cloudy"
     3 -> "☁️" to "Cloudy"
     45, 48 -> "🌫️" to "Foggy"
     51, 53, 55, 56, 57 -> "🌦️" to "Drizzle"
