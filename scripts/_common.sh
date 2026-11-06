@@ -26,3 +26,12 @@ ensure_connected() {
 }
 
 tv() { adb -s "$TV" "$@"; }
+
+# Saves a settings file inside the app on the TV (only our app can read it).
+# Sent base64-encoded so special characters in passwords survive the trip.
+write_app_file() {
+  local name="$1" content="$2"
+  local b64; b64="$(printf '%s' "$content" | base64 | tr -d '\n')"
+  tv shell am broadcast -n "$APP_ID/.ConfigReceiver" -a com.agentictv.SET_CONFIG \
+    --es file "$name" --es b64 "$b64" >/dev/null
+}
