@@ -14,7 +14,7 @@ val FAVORITE_PACKAGES = listOf(
 )
 
 /** The TV's own "Live TV / HDMI inputs" app. Gets its own tile in the Watch row. */
-const LIVE_TV_PACKAGE = "com.mediatek.wwtv.tvcenter"
+const val LIVE_TV_PACKAGE = "com.mediatek.wwtv.tvcenter"
 
 /**
  * Apps we never show, even if they're installed. Built-in TV system apps that
