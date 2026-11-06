@@ -106,7 +106,12 @@ fun PeoplePanel(
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         PanelButton("Close", onClose, Modifier.focusRequester(first))
                         if (likes.isNotEmpty()) PanelButton("Forget all", onForget)
-                        PanelButton("Remove ${state.name}", { onRemove(state.name) })
+                        // Ask twice, so nobody removes a person by accident.
+                        var sure by remember(state.name) { mutableStateOf(false) }
+                        PanelButton(
+                            if (sure) "Yes, remove ${state.name}" else "Remove ${state.name}",
+                            { if (sure) onRemove(state.name) else sure = true },
+                        )
                     }
                 }
 

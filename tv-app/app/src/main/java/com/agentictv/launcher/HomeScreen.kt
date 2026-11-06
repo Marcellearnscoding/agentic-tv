@@ -226,7 +226,6 @@ private fun Header(
 private fun Chip(label: String, active: Boolean, onClick: () -> Unit, onFocus: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
-    LaunchedEffect(focused) { if (focused) onFocus() }
     val scale by animateFloatAsState(if (focused) 1.08f else 1f, spring(stiffness = 600f), label = "chip")
     val shape = RoundedCornerShape(50)
     Box(
@@ -240,6 +239,7 @@ private fun Chip(label: String, active: Boolean, onClick: () -> Unit, onFocus: (
                     else -> Color.Transparent
                 }
             )
+            .onFocusChanged { if (it.isFocused) onFocus() }
             .clickable(interactionSource = interaction, indication = null, onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 6.dp),
     ) {
@@ -269,7 +269,6 @@ private fun Caps(text: String) {
 private fun Pill(label: String, onClick: () -> Unit, onFocus: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
-    LaunchedEffect(focused) { if (focused) onFocus() }
     val scale by animateFloatAsState(if (focused) 1.08f else 1f, spring(stiffness = 600f), label = "pill")
     val shape = RoundedCornerShape(50)
     Box(
@@ -278,6 +277,7 @@ private fun Pill(label: String, onClick: () -> Unit, onFocus: () -> Unit) {
             .clip(shape)
             .background(if (focused) FrostedFocused else Frosted)
             .border(1.dp, Color.White.copy(alpha = if (focused) 0f else 0.18f), shape)
+            .onFocusChanged { if (it.isFocused) onFocus() }
             .clickable(interactionSource = interaction, indication = null, onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
