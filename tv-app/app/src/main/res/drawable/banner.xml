@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 320x180 TV banner: a dark tile with a simple screen symbol. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="320dp" android:height="180dp"
+    android:viewportWidth="320" android:viewportHeight="180">
+    <path android:fillColor="#FF14182B" android:pathData="M0,0h320v180h-320z" />
+    <path android:fillColor="#FF7C8CFF" android:pathData="M110,45h100a10,10 0,0 1,10 10v60a10,10 0,0 1,-10 10h-100a10,10 0,0 1,-10 -10v-60a10,10 0,0 1,10 -10z" />
+    <path android:fillColor="#FF14182B" android:pathData="M120,55h80v60h-80z" />
+    <path android:fillColor="#FF7C8CFF" android:pathData="M140,135h40v6h-40z" />
+</vector>
